@@ -1,0 +1,87 @@
+PLUGIN_PHONETICSEARCH
+	DE	Phonetische Suche
+	EN	Phonetic Search
+
+PLUGIN_PHONETICSEARCH_DESC
+	DE	Fehlertolerante Suche in der lokalen Musikbibliothek (in Entwicklung)
+	EN	Fuzzy search in the local music library (under development)
+
+PLUGIN_PHONETICSEARCH_INTERVAL
+	DE	Abgleichintervall in Sekunden
+	EN	Reconciliation interval in seconds
+
+PLUGIN_PHONETICSEARCH_INDEX_STATUS
+	DE	Indexstatus
+	EN	Index status
+
+PLUGIN_PHONETICSEARCH_INTERVAL_DESC
+	DE	Standard: 5 Sekunden. Zulässig: 5 bis 3600 Sekunden. Der nächste automatische Abgleich beginnt frühestens nach diesem Abstand ab Abschluss des vorherigen. Während eines Bibliotheksscans pausiert der Abgleich.
+	EN	Default: 5 seconds. Allowed: 5 to 3600 seconds. The next automatic reconciliation starts no earlier than this interval after the previous one finishes. Reconciliation pauses during a library scan.
+
+PLUGIN_PHONETICSEARCH_RECONCILE_DURATION
+	DE	Dauer des letzten automatischen Abgleichs
+	EN	Last automatic reconciliation duration
+
+PLUGIN_PHONETICSEARCH_INTERVAL_SUGGESTION
+	DE	Empfohlenes Intervall mit bis zu 25 % Reserve (maximal 3600 s); letzter Abgleich dauerte länger als eingestellt
+	EN	Suggested interval with up to 25% headroom (maximum 3600 s); last reconciliation took longer than configured
+
+PLUGIN_PHONETICSEARCH_INTERVAL_INVALID
+	DE	Bitte eine ganze Zahl zwischen 5 und 3600 Sekunden eingeben.
+	EN	Enter a whole number between 5 and 3600 seconds.
+
+PLUGIN_PHONETICSEARCH_LAST_OPERATION
+	DE	Letzte Aktion
+	EN	Last operation
+
+PLUGIN_PHONETICSEARCH_VERIFIED_ENTITIES
+	DE	Geprüfte Einträge
+	EN	Verified entries
+
+PLUGIN_PHONETICSEARCH_MAINTENANCE
+	DE	Indexwartung
+	EN	Index maintenance
+
+PLUGIN_PHONETICSEARCH_MAINTENANCE_DESC
+	DE	Prüfung und Neuaufbau laufen im Hintergrund. Währenddessen kann die Suche vorübergehend nicht verfügbar sein.
+	EN	Verification and rebuild run in the background. Search may be temporarily unavailable.
+
+PLUGIN_PHONETICSEARCH_VERIFY
+	DE	Index prüfen
+	EN	Verify index
+
+PLUGIN_PHONETICSEARCH_REBUILD
+	DE	Index neu aufbauen
+	EN	Rebuild index
+
+PLUGIN_PHONETICSEARCH_CLEANUP
+	DE	Plugin-Daten vollständig entfernen
+	EN	Remove all plugin data
+
+PLUGIN_PHONETICSEARCH_CLEANUP_DESC
+	DE	Geben Sie DELETE ein. Index und Plugin-Einstellung werden entfernt; die Suche bleibt bis zum nächsten Serverstart deaktiviert. Entfernen Sie das Plugin anschließend. Bleibt es installiert, wird der Index beim nächsten Start neu aufgebaut.
+	EN	Enter DELETE. The index and plugin preference are removed; search remains disabled until the next server start. Remove the plugin afterwards. If it remains installed, the index is rebuilt on the next start.
+
+PLUGIN_PHONETICSEARCH_CLEANUP_BUTTON
+	DE	Plugin-Daten entfernen
+	EN	Remove plugin data
+
+PLUGIN_PHONETICSEARCH_CLEANUP_CONFIRM_INVALID
+	DE	Zum Entfernen bitte DELETE eingeben.
+	EN	Enter DELETE to remove plugin data.
+
+PLUGIN_PHONETICSEARCH_CLEANUP_COMPLETE
+	DE	Plugin-Daten entfernt. Sie können das Plugin jetzt deinstallieren.
+	EN	Plugin data removed. You can now uninstall the plugin.
+
+PLUGIN_PHONETICSEARCH_ACTION_STARTED
+	DE	Aktion gestartet. Der Status wird auf dieser Seite angezeigt.
+	EN	Action started. Its status appears on this page.
+
+PLUGIN_PHONETICSEARCH_ACTION_FAILED
+	DE	Aktion konnte nicht gestartet werden. Bitte Log und Indexstatus prüfen.
+	EN	Could not start the action. Check the log and index status.
+
+PLUGIN_PHONETICSEARCH_ACTION_TOKEN_INVALID
+	DE	Formular ist abgelaufen. Bitte Seite neu laden und Aktion erneut ausführen.
+	EN	The form has expired. Reload the page and retry the action.

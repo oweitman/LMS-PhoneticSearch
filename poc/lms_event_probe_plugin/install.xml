@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<extension>
+  <name>Phonetic Event Probe</name>
+  <module>Plugins::PhoneticEventProbe::Plugin</module>
+  <version>0.0.1</version>
+  <description>Temporary scanner event and timer probe</description>
+  <creator>oweitman</creator>
+  <category>tools</category>
+  <defaultState>enabled</defaultState>
+  <type>2</type>
+  <targetApplication>
+    <id>Lyrion Music Server</id>
+    <minVersion>9.2</minVersion>
+    <maxVersion>*</maxVersion>
+  </targetApplication>
+</extension>

@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "linux-x86_64": {
+    "file": "Bin/linux-x86_64/spellfix.so",
+    "sha256": "7604fb97b6a4697f709aceb73a0d9b64edd5596e698a7a7a96456840089f35df",
+    "sqlite_source": "3.45.1",
+    "build": "Debian 12 x86_64, GCC 12.2, glibc 2.36",
+    "verified": "LMS 9.2.0 DBD::SQLite 1.76 / SQLite 3.46.1"
+  }
+}

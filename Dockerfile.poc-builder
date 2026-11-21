@@ -1,0 +1,9 @@
+FROM debian:bookworm
+
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y ca-certificates gcc libc6-dev python3 \
+       gcc-aarch64-linux-gnu libc6-dev-arm64-cross gcc-mingw-w64-x86-64-win32 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+CMD ["python3", "scripts/build_extension.py"]

@@ -1,0 +1,70 @@
+name: lms-phoneticsearch-poc
+
+services:
+  builder:
+    build:
+      context: .
+      dockerfile: Dockerfile.poc-builder
+    user: "1000:1000"
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+    profiles: [build]
+
+  lms92:
+    image: ghcr.io/lms-community/lyrionmusicserver@sha256:69432a91a2fdbfef1c9a003897cadcf33be81f5c5609b6d818492ec3e30542d0
+    container_name: lms-phoneticsearch-poc-92
+    restart: "no"
+    environment:
+      HTTP_PORT: "9002"
+      PUID: "1000"
+      PGID: "1000"
+      TZ: Europe/Berlin
+    ports:
+      - "127.0.0.1:9002:9002"
+    volumes:
+      - ./data/9.2/config:/config
+      - ${TEST_MUSIC_DIR:?Set TEST_MUSIC_DIR to a test music directory}:/music:ro
+      - ./poc/music-fixture:/music-fixture:ro
+      - ./data/9.2/playlist:/playlist
+      - ./.poc-build:/poc-build:ro
+      - ./poc:/poc:ro
+    profiles: [lms92]
+
+  lms91:
+    image: ghcr.io/lms-community/lyrionmusicserver@sha256:a8709abda8a80766274abeb44015189b7e050eb1a6372678dcb077eb8c3a1e21
+    container_name: lms-phoneticsearch-poc-91
+    restart: "no"
+    environment:
+      HTTP_PORT: "9003"
+      PUID: "1000"
+      PGID: "1000"
+      TZ: Europe/Berlin
+    ports:
+      - "127.0.0.1:9003:9003"
+    volumes:
+      - ./data/9.1/config:/config
+      - ${TEST_MUSIC_DIR:?Set TEST_MUSIC_DIR to a test music directory}:/music:ro
+      - ./data/9.1/playlist:/playlist
+      - ./.poc-build:/poc-build:ro
+      - ./poc:/poc:ro
+    profiles: [lms91]
+
+  lms910:
+    image: ghcr.io/lms-community/lyrionmusicserver@sha256:3f2e0dc4b2460e91d6645c78845f7483e55647f035951dad17762f0bd615c239
+    container_name: lms-phoneticsearch-poc-910
+    restart: "no"
+    environment:
+      HTTP_PORT: "9004"
+      PUID: "1000"
+      PGID: "1000"
+      TZ: Europe/Berlin
+    ports:
+      - "127.0.0.1:9004:9004"
+    volumes:
+      - ./data/9.1.0/config:/config
+      - ${TEST_MUSIC_DIR:?Set TEST_MUSIC_DIR to a test music directory}:/music:ro
+      - ./data/9.1.0/playlist:/playlist
+      - ./.poc-build:/poc-build:ro
+      - ./poc:/poc:ro
+    profiles: [lms910]

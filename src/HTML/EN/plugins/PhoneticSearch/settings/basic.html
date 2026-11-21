@@ -1,0 +1,35 @@
+[% PROCESS settings/header.html %]
+
+<img src="/plugins/PhoneticSearch/html/icon.png" alt="PhoneticSearch" width="72" height="72" />
+
+[% WRAPPER settingSection %]
+	<input type="hidden" name="phoneticsearch_action_token" value="[% phoneticsearch_action_token | html %]" />
+	[% IF action_notice %]<div id="phoneticsearch_action_notice">[% action_notice | html %]</div>[% END %]
+	[% WRAPPER settingGroup title="PLUGIN_PHONETICSEARCH_INDEX_STATUS" %]
+		<span id="phoneticsearch_index_state">[% index_state | html %]</span>
+		[% IF index_error %]<div class="warning">[% index_error | html %]</div>[% END %]
+		[% IF index_last_mode %]<div>[% "PLUGIN_PHONETICSEARCH_LAST_OPERATION" | string %]: [% index_last_mode | html %]</div>[% END %]
+		[% IF index_last_verified %]<div>[% "PLUGIN_PHONETICSEARCH_VERIFIED_ENTITIES" | string %]: [% index_last_verified | html %]</div>[% END %]
+		[% IF index_last_reconcile_duration_seconds %]<div id="phoneticsearch_reconcile_duration">[% "PLUGIN_PHONETICSEARCH_RECONCILE_DURATION" | string %]: [% index_last_reconcile_duration_seconds | html %] s</div>[% END %]
+		[% IF index_suggested_interval_seconds %]<div id="phoneticsearch_interval_suggestion">[% "PLUGIN_PHONETICSEARCH_INTERVAL_SUGGESTION" | string %]: [% index_suggested_interval_seconds | html %] s</div>[% END %]
+	[% END %]
+	[% WRAPPER settingGroup title="PLUGIN_PHONETICSEARCH_INTERVAL" desc="PLUGIN_PHONETICSEARCH_INTERVAL_DESC" %]
+		<input type="number" class="stdedit" name="pref_reconcile_interval_seconds"
+			id="reconcile_interval_seconds" min="5" max="3600" step="1"
+			value="[% prefs.pref_reconcile_interval_seconds | html %]" />
+	[% END %]
+	[% IF index_state == 'cleanup_complete' %]
+		<div id="phoneticsearch_cleanup_complete">[% "PLUGIN_PHONETICSEARCH_CLEANUP_COMPLETE" | string %]</div>
+	[% ELSE %]
+		[% WRAPPER settingGroup title="PLUGIN_PHONETICSEARCH_MAINTENANCE" desc="PLUGIN_PHONETICSEARCH_MAINTENANCE_DESC" %]
+			<button type="submit" class="stdclick" name="phoneticsearch_action" value="verify">[% "PLUGIN_PHONETICSEARCH_VERIFY" | string %]</button>
+			<button type="submit" class="stdclick" name="phoneticsearch_action" value="rebuild">[% "PLUGIN_PHONETICSEARCH_REBUILD" | string %]</button>
+		[% END %]
+		[% WRAPPER settingGroup title="PLUGIN_PHONETICSEARCH_CLEANUP" desc="PLUGIN_PHONETICSEARCH_CLEANUP_DESC" %]
+			<input type="text" class="stdedit" name="phoneticsearch_confirm" id="phoneticsearch_confirm" autocomplete="off" placeholder="DELETE" />
+			<button type="submit" class="stdclick" name="phoneticsearch_action" value="cleanup">[% "PLUGIN_PHONETICSEARCH_CLEANUP_BUTTON" | string %]</button>
+		[% END %]
+	[% END %]
+[% END %]
+
+[% PROCESS settings/footer.html %]

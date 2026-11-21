@@ -1,0 +1,9 @@
+.research/
+__pycache__/
+*.pyc
+.poc-build/
+data/
+dist/
+.bundle/
+feed/
+

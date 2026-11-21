@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<extension>
+  <name>PLUGIN_PHONETICSEARCH</name>
+  <module>Plugins::PhoneticSearch::Plugin</module>
+  <version>0.1.0</version>
+  <description>PLUGIN_PHONETICSEARCH_DESC</description>
+  <homepage>https://github.com/oweitman/LMS-PhoneticSearch</homepage>
+  <icon>https://raw.githubusercontent.com/oweitman/LMS-PhoneticSearch/main/src/HTML/EN/plugins/PhoneticSearch/html/icon.png</icon>
+  <optionsURL>plugins/PhoneticSearch/settings/basic.html</optionsURL>
+  <creator>oweitman</creator>
+  <category>tools</category>
+  <defaultState>enabled</defaultState>
+  <type>2</type>
+  <targetApplication>
+    <id>Lyrion Music Server</id>
+    <minVersion>9.2.0</minVersion>
+    <maxVersion>*</maxVersion>
+  </targetApplication>
+</extension>

@@ -1,0 +1,275 @@
+name: Test and package PhoneticSearch
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s poc -p 'test_*.py' -v
+      - run: python -m poc.search_corpus
+      - run: python -m compileall -q poc scripts
+      - run: perl -Isrc/lib poc/test_interval.pl
+      - run: perl -Isrc/lib poc/test_loader_platforms.pl
+      - run: python scripts/package_test_plugin.py
+
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - id: targets
+        run: python scripts/ci_binary.py matrix >> "$GITHUB_OUTPUT"
+
+  binaries:
+    needs: [unit, prepare]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      issues: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - id: binary-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: .bundle/${{ matrix.id }}
+          key: binary-v1-${{ matrix.id }}-${{ hashFiles('vendor/sqlite/spellfix.c', 'vendor/sqlite/sqlite3.h', 'vendor/sqlite/sqlite3ext.h', 'scripts/build_extension.py', 'scripts/ci_binary.py', 'scripts/platforms.json', 'poc/spellfix_probe.py', 'poc/test_loader.pl', 'src/lib/Plugins/PhoneticSearch/Loader.pm') }}
+      - name: Check restored validated binary
+        if: steps.binary-cache.outputs.cache-hit == 'true'
+        run: python scripts/ci_binary.py validate '${{ matrix.id }}'
+      - name: Run source checks before compilation
+        if: steps.binary-cache.outputs.cache-hit != 'true'
+        run: |
+          python -m compileall -q poc scripts
+          if [ '${{ matrix.id }}' != 'linux-armv7' ]; then
+            python scripts/ci_binary.py preflight '${{ matrix.id }}'
+          fi
+      - name: Enable ARMv7 emulation
+        if: matrix.id == 'linux-armv7' && steps.binary-cache.outputs.cache-hit != 'true'
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130
+        with:
+          platforms: arm
+      - name: Install native Windows compiler
+        id: windows-toolchain
+        if: matrix.id == 'windows-x86_64' && steps.binary-cache.outputs.cache-hit != 'true'
+        uses: msys2/setup-msys2@3c51bf698df1e37b2261f53cb67797b97761185c
+        with:
+          msystem: MINGW64
+          install: mingw-w64-x86_64-gcc
+      - name: Build and load in Debian 12 Linux
+        if: startsWith(matrix.id, 'linux-') && matrix.id != 'linux-armv7' && steps.binary-cache.outputs.cache-hit != 'true'
+        run: |
+          docker run --rm -v "$PWD:/workspace" -w /workspace \
+            -e TARGET='${{ matrix.id }}' -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+            debian:12 bash -euc '
+              apt-get update -qq
+              apt-get install -y --no-install-recommends gcc libc6-dev python3
+              python3 scripts/ci_binary.py preflight "$TARGET"
+              python3 scripts/build_extension.py
+              python3 -m poc.spellfix_probe .poc-build/spellfix.so
+              chown -R "$HOST_UID:$HOST_GID" .poc-build
+            '
+      - name: Build and load ARMv7 under QEMU
+        if: matrix.id == 'linux-armv7' && steps.binary-cache.outputs.cache-hit != 'true'
+        run: |
+          docker run --rm --platform linux/arm/v7 -v "$PWD:/workspace" -w /workspace \
+            -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+            arm32v7/debian:bookworm bash -euc '
+              apt-get update -qq
+              apt-get install -y --no-install-recommends gcc libc6-dev python3
+              python3 scripts/ci_binary.py preflight linux-armv7
+              python3 scripts/build_extension.py
+              python3 -m poc.spellfix_probe .poc-build/spellfix.so
+              chown -R "$HOST_UID:$HOST_GID" .poc-build
+            '
+      - name: Build and load on native macOS
+        if: startsWith(matrix.id, 'macos-') && steps.binary-cache.outputs.cache-hit != 'true'
+        run: |
+          brew install sqlite
+          python scripts/build_extension.py
+          sqlite="$(brew --prefix sqlite)/bin/sqlite3"
+          for db in :memory: .poc-build/macos-smoke.db; do
+            result="$($sqlite "$db" \
+              '.load .poc-build/spellfix.dylib sqlite3_spellfix_init' \
+              'CREATE VIRTUAL TABLE words USING spellfix1;' \
+              "INSERT INTO words(word) VALUES ('beatles');" \
+              "SELECT word FROM words WHERE word MATCH 'beatls';")"
+            test "$result" = beatles
+          done
+      - name: Build and load on native Windows
+        if: matrix.id == 'windows-x86_64' && steps.binary-cache.outputs.cache-hit != 'true'
+        shell: msys2 {0}
+        run: |
+          mkdir -p .poc-build
+          gcc -O2 -shared -I vendor/sqlite vendor/sqlite/spellfix.c -o .poc-build/spellfix.dll
+      - name: Load native Windows DLL in Python SQLite
+        if: matrix.id == 'windows-x86_64' && steps.binary-cache.outputs.cache-hit != 'true'
+        run: |
+          python -m poc.spellfix_probe .poc-build/spellfix.dll
+      - name: Stage tested Linux binary
+        if: startsWith(matrix.id, 'linux-') && steps.binary-cache.outputs.cache-hit != 'true'
+        run: python scripts/ci_binary.py stage '${{ matrix.id }}' .poc-build/spellfix.so
+      - name: Stage tested macOS binary
+        if: startsWith(matrix.id, 'macos-') && steps.binary-cache.outputs.cache-hit != 'true'
+        run: python scripts/ci_binary.py stage '${{ matrix.id }}' .poc-build/spellfix.dylib
+      - name: Stage tested Windows binary
+        if: matrix.id == 'windows-x86_64' && steps.binary-cache.outputs.cache-hit != 'true'
+        run: python scripts/ci_binary.py stage '${{ matrix.id }}' .poc-build/spellfix.dll
+      - name: Load candidate with LMS 9.2 Perl on Linux x86_64
+        if: matrix.id == 'linux-x86_64' && steps.binary-cache.outputs.cache-hit != 'true'
+        run: |
+          python scripts/ci_binary.py loader-fixture linux-x86_64
+          docker run --rm --entrypoint perl \
+            -v "$PWD/.poc-build/loader-root:/fixture:ro" -v "$PWD/poc:/poc:ro" \
+            ghcr.io/lms-community/lyrionmusicserver@sha256:69432a91a2fdbfef1c9a003897cadcf33be81f5c5609b6d818492ec3e30542d0 \
+            /poc/test_loader.pl /fixture
+      - name: Validate binary metadata and hash
+        run: python scripts/ci_binary.py validate '${{ matrix.id }}'
+      - name: Publish validated target for this run
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: validated-${{ matrix.id }}
+          path: .bundle/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+      - name: Open or update target issue on failure
+        if: failure() && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/binary_issue.py failed '${{ matrix.id }}'
+      - name: Close resolved target issue
+        if: success() && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/binary_issue.py passed '${{ matrix.id }}'
+
+  package:
+    needs: [unit, prepare, binaries]
+    if: always() && needs.unit.result == 'success' && needs.prepare.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Download all successfully validated targets
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: validated-*
+          path: .bundle
+          merge-multiple: true
+      - name: Rebuild plugin ZIP from current source and validated binaries
+        run: |
+          python scripts/package_ci_plugin.py
+          unzip -t dist/PhoneticSearch-ci.zip
+          cd dist && sha256sum -c PhoneticSearch-ci.zip.sha256
+      - name: Upload plugin and platform report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: plugin-ci-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  feed:
+    needs: package
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.package.result == 'success'
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: phoneticsearch-plugin-feed
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: plugin-ci-${{ github.sha }}
+          path: dist
+      - name: Publish only a complete package from current main
+        id: gate
+        run: |
+          if ! python -c "import json; assert json.load(open('dist/build-report.json'))['complete']"; then
+            echo 'Incomplete platform package: keeping the last valid feed.'
+            exit 0
+          fi
+          latest="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [ "$latest" != "$GITHUB_SHA" ]; then
+            echo 'A newer main commit exists: leaving this feed unchanged.'
+            exit 0
+          fi
+          echo 'publish=true' >> "$GITHUB_OUTPUT"
+      - name: Create feed branch if necessary
+        if: steps.gate.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/plugin-feed" > /dev/null 2>&1; then
+            gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref=refs/heads/plugin-feed -f sha="$GITHUB_SHA" > /dev/null
+          fi
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: steps.gate.outputs.publish == 'true'
+        with:
+          ref: plugin-feed
+          path: feed
+      - name: Update LMS catalog and checked ZIP
+        id: update-feed
+        if: steps.gate.outputs.publish == 'true'
+        run: |
+          python scripts/prepare_feed.py --feed feed
+          if [ -n "$(git -C feed status --porcelain -- public.xml feed-state.json)" ]; then
+            echo 'updated=true' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish versioned plugin release
+        if: steps.update-feed.outputs.updated == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="$(python -c "import json; print(json.load(open('feed/feed-state.json'))['version'])")"
+          asset="feed/PhoneticSearch-$version.zip"
+          if gh release view "v$version" > /dev/null 2>&1; then
+            mkdir -p dist/existing-release
+            gh release download "v$version" -p "PhoneticSearch-$version.zip" -D dist/existing-release
+            cmp "$asset" "dist/existing-release/PhoneticSearch-$version.zip"
+          else
+            gh release create "v$version" "$asset" --target "$GITHUB_SHA" \
+              --title "PhoneticSearch $version" \
+              --notes 'Tested plugin package for LMS 9.2+. Full LMS runtime validation currently covers Linux x86_64; see the compatibility notes for other platforms.'
+          fi
+      - name: Push feed when package contents changed
+        if: steps.gate.outputs.publish == 'true'
+        run: |
+          git -C feed config user.name 'github-actions[bot]'
+          git -C feed config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C feed add public.xml feed-state.json 'PhoneticSearch-*.zip'
+          if ! git -C feed diff --cached --quiet; then
+            git -C feed commit -m "Publish tested PhoneticSearch plugin from $GITHUB_SHA"
+            git -C feed push origin HEAD:plugin-feed
+          fi

@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "sqlite_source": "3.45.1",
+  "targets": [
+    {"id": "linux-x86_64", "runner": "ubuntu-24.04", "binary": "spellfix.so", "smoke": "lms-perl"},
+    {"id": "linux-aarch64", "runner": "ubuntu-24.04-arm", "binary": "spellfix.so", "smoke": "sqlite-python"},
+    {"id": "linux-armv7", "runner": "ubuntu-24.04", "binary": "spellfix.so", "smoke": "sqlite-python-qemu"},
+    {"id": "macos-x86_64", "runner": "macos-15-intel", "binary": "spellfix.dylib", "smoke": "sqlite-cli"},
+    {"id": "macos-arm64", "runner": "macos-15", "binary": "spellfix.dylib", "smoke": "sqlite-cli"},
+    {"id": "windows-x86_64", "runner": "windows-2022", "binary": "spellfix.dll", "smoke": "sqlite-python"}
+  ]
+}

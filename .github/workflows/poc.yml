@@ -199,7 +199,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.package.result == 'success'
     runs-on: ubuntu-24.04
     concurrency:
-      group: phoneticsearch-plugin-feed
+      group: phoneticsearch-main-catalog
       cancel-in-progress: false
     permissions:
       contents: write
@@ -268,19 +268,3 @@ jobs:
           git add public.xml feed-state.json
           git commit -m "Publish tested PhoneticSearch plugin from $GITHUB_SHA [skip ci]"
           git push origin HEAD:main
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        if: steps.publish-release.outputs.published == 'true'
-        with:
-          ref: plugin-feed
-          path: legacy-feed
-      - name: Keep the previous plugin-feed URL current
-        if: steps.publish-release.outputs.published == 'true'
-        run: |
-          cp public.xml feed-state.json legacy-feed/
-          git -C legacy-feed config user.name 'github-actions[bot]'
-          git -C legacy-feed config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git -C legacy-feed add public.xml feed-state.json
-          if ! git -C legacy-feed diff --cached --quiet; then
-            git -C legacy-feed commit -m "Mirror PhoneticSearch catalog from main [skip ci]"
-            git -C legacy-feed push origin HEAD:plugin-feed
-          fi

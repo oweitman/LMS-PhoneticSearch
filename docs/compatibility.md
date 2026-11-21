@@ -1,6 +1,6 @@
 # Kompatibilität ab LMS 9.1
 
-**Aktueller Veröffentlichungsstand (2026-11-22):** Der historische erste Actions-Lauf 44930401220 bestand Unit-, sechs Binary-, Paket- und Feed-Job. Das Release [v0.1.1](https://github.com/oweitman/LMS-PhoneticSearch/releases/tag/v0.1.1) enthält alle sechs Binärziele. Nur Linux x86_64 wurde als vollständiges Plugin auf LMS 9.2 getestet. Auf anderen Plattformen wurde das Laden der SQLite-Erweiterung in der jeweiligen Testumgebung geprüft. LMS 9.1 bleibt als Laufzeitziel offen; `install.xml` verlangt derzeit 9.2.0. Die früheren Actions-IDs unten gehören zur privaten, archivierten Vorgeschichte und sind öffentlich nicht abrufbar.
+**Aktueller Veröffentlichungsstand (2026-11-22):** [Actions-Lauf 44961066998](https://github.com/oweitman/LMS-PhoneticSearch/actions/runs/44961066998) auf dem `oweitman`-Root-Commit bestand Unit-, sechs Binary-, Paket- und Feed-Job. Das Release [v0.1.1](https://github.com/oweitman/LMS-PhoneticSearch/releases/tag/v0.1.1) enthält alle sechs Binärziele. Nur Linux x86_64 wurde als vollständiges Plugin auf LMS 9.2 getestet. Auf anderen Plattformen wurde das Laden der SQLite-Erweiterung in der jeweiligen Testumgebung geprüft. LMS 9.1 bleibt als Laufzeitziel offen; `install.xml` verlangt derzeit 9.2.0. Die früheren Actions-IDs unten gehören zur privaten, archivierten Vorgeschichte und sind öffentlich nicht abrufbar.
 
 Infrastrukturadressen und Dateipfade in den historischen Testnotizen sind für die öffentliche Dokumentation anonymisierte Beispiele.
 

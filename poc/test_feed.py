@@ -10,8 +10,23 @@ from xml.etree import ElementTree as ET
 
 from scripts.prepare_feed import TARGETS, build
 
+ROOT = Path(__file__).resolve().parents[1]
+
 
 class FeedPackageTest(unittest.TestCase):
+    def test_committed_catalog_matches_published_state(self):
+        entry = ET.parse(ROOT / 'public.xml').find('plugins/plugin')
+        state = json.loads((ROOT / 'feed-state.json').read_text(encoding='utf-8'))
+        version = state['version']
+        self.assertEqual(entry.get('version'), version)
+        self.assertEqual(entry.findtext('sha'), state['package_sha1'])
+        self.assertEqual(entry.findtext('url'),
+                         f'https://github.com/oweitman/LMS-PhoneticSearch/'
+                         f'releases/download/v{version}/PhoneticSearch-{version}.zip')
+        self.assertIn('https://raw.githubusercontent.com/oweitman/'
+                      'LMS-PhoneticSearch/main/public.xml',
+                      (ROOT / 'README.md').read_text(encoding='utf-8'))
+
     def test_catalog_package_and_idempotence(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

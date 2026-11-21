@@ -226,33 +226,27 @@ jobs:
             exit 0
           fi
           echo 'publish=true' >> "$GITHUB_OUTPUT"
-      - name: Create feed branch if necessary
-        if: steps.gate.outputs.publish == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/plugin-feed" > /dev/null 2>&1; then
-            gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
-              -f ref=refs/heads/plugin-feed -f sha="$GITHUB_SHA" > /dev/null
-          fi
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        if: steps.gate.outputs.publish == 'true'
-        with:
-          ref: plugin-feed
-          path: feed
       - name: Update LMS catalog and checked ZIP
         id: update-feed
         if: steps.gate.outputs.publish == 'true'
         run: |
+          mkdir -p feed
+          cp public.xml feed-state.json feed/
           python scripts/prepare_feed.py --feed feed
-          if [ -n "$(git -C feed status --porcelain -- public.xml feed-state.json)" ]; then
+          if ! cmp -s public.xml feed/public.xml || ! cmp -s feed-state.json feed/feed-state.json; then
             echo 'updated=true' >> "$GITHUB_OUTPUT"
           fi
       - name: Publish versioned plugin release
+        id: publish-release
         if: steps.update-feed.outputs.updated == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          latest="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [ "$latest" != "$GITHUB_SHA" ]; then
+            echo 'A newer main commit exists: leaving this catalog unchanged.'
+            exit 0
+          fi
           version="$(python -c "import json; print(json.load(open('feed/feed-state.json'))['version'])")"
           asset="feed/PhoneticSearch-$version.zip"
           if gh release view "v$version" > /dev/null 2>&1; then
@@ -264,13 +258,13 @@ jobs:
               --title "PhoneticSearch $version" \
               --notes 'Tested plugin package for LMS 9.2+. Full LMS runtime validation currently covers Linux x86_64; see the compatibility notes for other platforms.'
           fi
-      - name: Push feed when package contents changed
-        if: steps.gate.outputs.publish == 'true'
+          echo 'published=true' >> "$GITHUB_OUTPUT"
+      - name: Update public.xml on main after publishing the release
+        if: steps.publish-release.outputs.published == 'true'
         run: |
-          git -C feed config user.name 'github-actions[bot]'
-          git -C feed config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git -C feed add public.xml feed-state.json 'PhoneticSearch-*.zip'
-          if ! git -C feed diff --cached --quiet; then
-            git -C feed commit -m "Publish tested PhoneticSearch plugin from $GITHUB_SHA"
-            git -C feed push origin HEAD:plugin-feed
-          fi
+          cp feed/public.xml feed/feed-state.json .
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public.xml feed-state.json
+          git commit -m "Publish tested PhoneticSearch plugin from $GITHUB_SHA [skip ci]"
+          git push origin HEAD:main

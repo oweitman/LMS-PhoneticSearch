@@ -4,10 +4,10 @@
 
 ## Installation through the LMS plugin manager
 
-Requires **Lyrion Music Server 9.2.0 or later** on a supported platform. The public repository feed is available at:
+Requires **Lyrion Music Server 9.2.0 or later** on a supported platform. The LMS repository feed URL is:
 
 ```text
-https://raw.githubusercontent.com/oweitman/LMS-PhoneticSearch/plugin-feed/public.xml
+https://raw.githubusercontent.com/oweitman/LMS-PhoneticSearch/main/public.xml
 ```
 
 1. Open **Settings > Plugins** in the LMS web interface.
@@ -25,7 +25,7 @@ The plugin maintains its own SQLite index under the LMS cache. It reads `library
 
 `install.xml` currently requires **LMS 9.2.0 or later**. The long-term compatibility goal is LMS 9.1+, but the integrated plugin has only been exercised on LMS 9.2.0 on Linux x86_64. The CI platform matrix builds and checks SQLite extension loading for Linux x86_64, Linux aarch64, Linux armv7, macOS x86_64, macOS arm64 and Windows x86_64. A successful SQLite load on another platform is not proof that the complete LMS plugin runs there. Check [compatibility](docs/compatibility.md) and the build report in each CI artifact before testing a package.
 
-This repository is a test implementation. The [latest release](https://github.com/oweitman/LMS-PhoneticSearch/releases/latest) contains the same versioned ZIP that the LMS repository catalog references. For a **separate test LMS**, see the [manual installation guide](docs/test-installation.md). The GitHub Actions plugin artifact is assembled from the current source and only the platform binaries that passed their build and load checks. Its `build-report.json` lists included and missing targets. A complete, validated package is published as a GitHub release and listed in the `plugin-feed` branch for LMS repository installation.
+This repository is a test implementation. The [latest release](https://github.com/oweitman/LMS-PhoneticSearch/releases/latest) contains the same versioned ZIP that the LMS repository catalog in [public.xml](public.xml) references. For a **separate test LMS**, see the [manual installation guide](docs/test-installation.md). The GitHub Actions plugin artifact is assembled from the current source and only the platform binaries that passed their build and load checks. Its `build-report.json` lists included and missing targets. A complete, validated package is published as a GitHub release before `public.xml` on `main` is updated for LMS repository installation.
 
 ## Commands
 

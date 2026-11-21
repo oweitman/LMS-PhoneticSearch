@@ -5,7 +5,7 @@ Use a separate **LMS 9.2.0+** server. Full plugin operation has been verified on
 ## Plugin manager installation
 
 1. Open **Settings > Plugins** in LMS.
-2. Add `https://raw.githubusercontent.com/oweitman/LMS-PhoneticSearch/plugin-feed/public.xml` under **Additional repositories** and save.
+2. Add `https://raw.githubusercontent.com/oweitman/LMS-PhoneticSearch/main/public.xml` under **Additional repositories** and save.
 3. Reload the page, select **PhoneticSearch**, apply the installation, and restart LMS when prompted.
 4. Open the plugin's **Settings** link. Wait for the index state to become `ready`.
 

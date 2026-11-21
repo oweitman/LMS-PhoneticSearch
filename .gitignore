@@ -6,4 +6,5 @@ data/
 dist/
 .bundle/
 feed/
+legacy-feed/
 

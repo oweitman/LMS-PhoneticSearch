@@ -1,6 +1,6 @@
 # Test installation on a separate LMS server
 
-Use a separate **LMS 9.2.0+** server. Full plugin operation has been verified on Linux x86_64; binaries for the other CI platforms have only passed extension load tests. Check [compatibility](compatibility.md) before trying another platform. Keep your production LMS configuration and database out of this test.
+Use a separate **LMS 9.2.0+** server for the first installation test. The plugin declares LMS 9.1.0 as its minimum, but full plugin operation has only been verified on LMS 9.2/Linux x86_64; binaries for the other CI platforms have only passed extension load tests. Check [compatibility](compatibility.md) before trying another platform. Keep your production LMS configuration and database out of this test.
 
 ## Plugin manager installation
 

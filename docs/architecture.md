@@ -1,6 +1,6 @@
 # Architektur von PhoneticSearch
 
-Stand 2026-11-21. Nur das isolierte LMS 9.2.0 auf Linux x86_64 ist für diese integrierte Implementierung geprüft. LMS 9.1 bleibt die geplante Mindestversion für die spätere Matrix.
+Stand 2026-11-22. Nur das isolierte LMS 9.2.0 auf Linux x86_64 ist für diese integrierte Implementierung geprüft. LMS 9.1.0 ist als Mindestversion deklariert; ein vollständiger Plugin-Lauf auf 9.1 ist noch nicht belegt.
 
 ## Daten und Aktualisierung
 

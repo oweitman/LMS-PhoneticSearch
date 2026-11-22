@@ -26,6 +26,8 @@ The following architectures are currently supported:
 
 The feed is published only after all six binary checks pass. If your platform is not yet validated as a complete LMS runtime, use a separate test server first. See [compatibility](docs/compatibility.md) and the [manual test installation guide](docs/test-installation.md).
 
+LMS 9.1.0 is the declared minimum version. The complete plugin has so far been tested only with LMS 9.2.0 on Linux x86_64; the LMS 9.1 plugin runtime remains unverified.
+
 PhoneticSearch adds a read-only JSON-RPC search for artists, albums, tracks and genres. It combines exact, normalized, alias, prefix and phonetic matching. For example, speech recognition may turn **Alphaville** into `alpha will` or `alfa will`; both returned Alphaville as the first artist hit in the LMS 9.2 test library. The plugin does not replace the standard LMS search screen.
 
 The plugin maintains its own SQLite index under the LMS cache. It reads `library.db` without adding triggers or changing LMS Core. A separate worker updates the index after source changes. The default poll interval is five seconds and can be set to 5–3600 seconds on the plugin settings page. A new automatic interval starts after the previous worker finishes, so workers do not overlap. A full comparison runs after a scan and at most every 900 seconds to catch deletions and changes without an update timestamp. During an LMS scan, searches pause. Results are checked against current library names before they are returned.

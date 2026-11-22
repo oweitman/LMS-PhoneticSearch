@@ -18,7 +18,7 @@ Stand: 2026-11-22. Infrastrukturadressen und lokale Pfade in den historischen PO
 - Das komplette Plugin lief auf isoliertem LMS **9.2.0/Linux x86_64**: Einstellungen, Worker, Index, Status- und Such-API, `alpha will` und `alfa will` → `Alphaville`, Rescan-/Fehlerfälle und Cleanup. Ein zweiter isolierter Testserver lud das manuell installierte Plugin; API, Icon und Einstellungslink antworteten. Diese Live-Tests betrafen frühere ZIP-Stände, nicht den Release-Download über den Plugin-Manager.
 - Die aktuelle Actions-Matrix baute und lud die SQLite-Erweiterung auf Linux x86_64/aarch64/armv7, macOS x86_64/arm64 und Windows x86_64. Der Linux-x86_64-Job lud sie zusätzlich mit der gepinnten LMS-9.2-Perl-Runtime. Für die anderen fünf Ziele ist kein vollständiger LMS-Plugin-Lauf bewiesen.
 - Der Quellindex ist eine getrennte SQLite-Datei ohne Trigger in `library.db`. Der Poll startet standardmäßig nach fünf Sekunden und ist auf der Plugin-Seite konfigurierbar; der nächste Tick wird erst nach Abschluss des vorherigen Workers geplant. Nach Scan-Ende oder spätestens 900 Sekunden wird vollständig abgeglichen. Synthetische Lasttests bis 500.000 Tracks stehen in [poc-results.md](poc-results.md).
-- `install.xml` verlangt derzeit LMS 9.2.0. LMS 9.1 ist das längerfristige Kompatibilitätsziel, aber für das integrierte Plugin noch nicht freigegeben. Eine produktive Installation wurde nicht ausgeführt.
+- `src/install.xml` deklariert nun LMS 9.1.0 als Mindestversion. Der Katalog darf 9.1.0 erst für ein dazu passendes neues Release ausweisen; v0.1.1 verlangt noch 9.2.0. Der vollständige Plugin-Lauf auf LMS 9.1 ist noch nicht getestet. Eine produktive Installation wurde nicht ausgeführt.
 
 ## Reproduzierbare Befehle
 

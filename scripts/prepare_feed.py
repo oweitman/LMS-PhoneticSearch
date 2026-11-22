@@ -112,6 +112,7 @@ def build(package: Path, report_path: Path, feed: Path, run_number: int,
         b'<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(catalog, encoding='utf-8') + b'\n')
     state = {
         'input_sha256': report['sha256'],
+        'min_target': source_install.findtext('targetApplication/minVersion') or '',
         'package_sha256': digest(payload),
         'package_sha1': digest(payload, 'sha1'),
         'revision': report['revision'],

@@ -35,7 +35,7 @@ def build(output: Path = OUTPUT) -> tuple[Path, str]:
     assert hashlib.sha256(binary.read_bytes()).hexdigest() == target['sha256']
     install = ElementTree.parse(SOURCE / 'install.xml').getroot()
     assert install.findtext('module') == 'Plugins::PhoneticSearch::Plugin'
-    assert install.findtext('targetApplication/minVersion') == '9.2.0'
+    assert install.findtext('targetApplication/minVersion') == '9.1.0'
     assert install.findtext('icon') == ('https://raw.githubusercontent.com/oweitman/'
                                       'LMS-PhoneticSearch/main/src/HTML/EN/plugins/'
                                       'PhoneticSearch/html/icon.png')

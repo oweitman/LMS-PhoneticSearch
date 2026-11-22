@@ -19,6 +19,7 @@ class FeedPackageTest(unittest.TestCase):
         state = json.loads((ROOT / 'feed-state.json').read_text(encoding='utf-8'))
         version = state['version']
         self.assertEqual(entry.get('version'), version)
+        self.assertEqual(entry.get('minTarget'), state['min_target'])
         self.assertEqual(entry.findtext('sha'), state['package_sha1'])
         self.assertEqual(entry.findtext('url'),
                          f'https://github.com/oweitman/LMS-PhoneticSearch/'
@@ -54,6 +55,8 @@ class FeedPackageTest(unittest.TestCase):
             entry = ET.parse(feed / 'public.xml').find('plugins/plugin')
             self.assertEqual(entry.get('version'), '0.1.42')
             self.assertEqual(entry.get('minTarget'), '9.2.0')
+            self.assertEqual(json.loads((feed / 'feed-state.json').read_text())['min_target'],
+                             '9.2.0')
             published = feed / 'PhoneticSearch-0.1.42.zip'
             self.assertEqual(entry.findtext('sha'), hashlib.sha1(published.read_bytes()).hexdigest())
             self.assertEqual(entry.findtext('url'),

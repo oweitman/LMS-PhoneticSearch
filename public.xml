@@ -4,7 +4,7 @@
     <title lang="EN">PhoneticSearch for Lyrion Music Server</title>
   </details>
   <plugins>
-    <plugin name="PhoneticSearch" version="0.1.1" minTarget="9.2.0" maxTarget="*">
+    <plugin name="PhoneticSearch" version="0.1.1" minTarget="9.1.0" maxTarget="*">
       <title lang="EN">PhoneticSearch</title>
       <desc lang="EN">Phonetic search for artists, albums, tracks and genres.</desc>
       <desc lang="DE">Phonetische Suche nach Interpreten, Alben, Titeln und Genres.</desc>

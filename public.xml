@@ -4,14 +4,14 @@
     <title lang="EN">PhoneticSearch for Lyrion Music Server</title>
   </details>
   <plugins>
-    <plugin name="PhoneticSearch" version="0.1.11" minTarget="9.1.0" maxTarget="*">
+    <plugin name="PhoneticSearch" version="0.1.13" minTarget="9.1.0" maxTarget="*">
       <title lang="EN">PhoneticSearch</title>
       <desc lang="EN">Phonetic search for artists, albums, tracks and genres.</desc>
       <desc lang="DE">Phonetische Suche nach Interpreten, Alben, Titeln und Genres.</desc>
-      <url>https://github.com/oweitman/LMS-PhoneticSearch/releases/download/v0.1.11/PhoneticSearch-0.1.11.zip</url>
+      <url>https://github.com/oweitman/LMS-PhoneticSearch/releases/download/v0.1.13/PhoneticSearch-0.1.13.zip</url>
       <link>https://github.com/oweitman/LMS-PhoneticSearch</link>
       <icon>https://raw.githubusercontent.com/oweitman/LMS-PhoneticSearch/main/src/HTML/EN/plugins/PhoneticSearch/html/icon.png</icon>
-      <sha>182ef04785e0895b98b9b6fe48278c7ac87eba84</sha>
+      <sha>7921149b68f19602dc63802c3d76afd9584eac3a</sha>
       <creator>oweitman</creator>
     </plugin>
   </plugins>

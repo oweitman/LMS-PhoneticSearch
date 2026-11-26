@@ -1,6 +1,6 @@
 # Projektstatus für spätere Sitzungen
 
-Stand: 2026-11-22. Infrastrukturadressen und lokale Pfade in den historischen POC-Notizen sind anonymisierte Platzhalter.
+Stand: 2026-11-26. Infrastrukturadressen und lokale Pfade in den historischen POC-Notizen sind anonymisierte Platzhalter.
 
 ## Veröffentlichung und Repository
 
@@ -18,7 +18,7 @@ Stand: 2026-11-22. Infrastrukturadressen und lokale Pfade in den historischen PO
 
 - Das komplette Plugin lief auf isoliertem LMS **9.2.0/Linux x86_64**: Einstellungen, Worker, Index, Status- und Such-API, `alpha will` und `alfa will` → `Alphaville`, Rescan-/Fehlerfälle und Cleanup. Ein zweiter isolierter Testserver lud das manuell installierte Plugin; API, Icon und Einstellungslink antworteten. Diese Live-Tests betrafen frühere ZIP-Stände, nicht den Release-Download über den Plugin-Manager.
 - Die aktuelle Actions-Matrix baute und lud die SQLite-Erweiterung auf Linux x86_64/aarch64/armv7, macOS x86_64/arm64 und Windows x86_64. Der Linux-x86_64-Job lud sie zusätzlich mit der gepinnten LMS-9.2-Perl-Runtime. Für die anderen fünf Ziele ist kein vollständiger LMS-Plugin-Lauf bewiesen.
-- Der Quellindex ist eine getrennte SQLite-Datei ohne Trigger in `library.db`. Der Poll startet standardmäßig nach fünf Sekunden und ist auf der Plugin-Seite konfigurierbar; der nächste Tick wird erst nach Abschluss des vorherigen Workers geplant. Nach Scan-Ende oder spätestens 900 Sekunden wird vollständig abgeglichen. Synthetische Lasttests bis 500.000 Tracks stehen in [poc-results.md](poc-results.md).
+- Der Quellindex ist eine getrennte SQLite-Datei ohne Trigger in `library.db`. Die aktuelle Entwicklungsversion gleicht ihn beim Start, nach `rescan done` sowie nach gezielten Album- und Track-Rescans ab. Während Scan, Worker und Fehler-Retry laufen nur kurzlebige Timer; im Leerlauf gibt es keinen Poll. Der frühere konfigurierbare Poll und der 900-Sekunden-Abgleich wurden entfernt. Synthetische Lasttests bis 500.000 Tracks stehen in [poc-results.md](poc-results.md).
 - `src/install.xml` und der aktuelle Katalog deklarieren LMS 9.1.0 als Mindestversion. Das ältere Release v0.1.1 verlangt weiterhin 9.2.0. Der vollständige Plugin-Lauf auf LMS 9.1 ist noch nicht getestet. Eine produktive Installation wurde nicht ausgeführt.
 
 ## Reproduzierbare Befehle
@@ -26,7 +26,7 @@ Stand: 2026-11-22. Infrastrukturadressen und lokale Pfade in den historischen PO
 ```sh
 python -m unittest discover -s poc -p 'test_*.py' -v
 python -m poc.search_corpus
-perl -Isrc/lib poc/test_interval.pl
+perl -Isrc/lib poc/test_scheduler_events.pl
 perl -Isrc/lib poc/test_loader_platforms.pl
 python scripts/package_test_plugin.py
 python scripts/ci_binary.py matrix

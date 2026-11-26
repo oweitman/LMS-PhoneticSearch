@@ -17,7 +17,6 @@ use Unicode::Normalize qw(NFKC);
 
 use Plugins::PhoneticSearch::Loader;
 
-use constant FULL_INTERVAL => 900;
 use constant MAX_RECENT_TRACKS => 5000;
 
 my %NAME_COLUMN = (
@@ -454,14 +453,13 @@ sub run {
                 $result = $self->_full($source, $version, $identity);
             }
             else {
-                my $last_full = _meta($index, 'last_full_epoch') || 0;
                 my $watermark = _meta($index, 'watermark') || 0;
                 my $old_identity = _meta($index, 'source_identity') || '';
                 if ($old_identity ne $identity) {
                     $index->disconnect;
                     $result = $self->_full($source, $version, $identity);
                 }
-                elsif ($force || time() - $last_full >= FULL_INTERVAL) {
+                elsif ($force) {
                     $result = $self->_reconcile($source, $index, $version, $identity);
                     $index->disconnect;
                 }

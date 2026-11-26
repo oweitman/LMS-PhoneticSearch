@@ -21,7 +21,7 @@ sub register {
 sub status_query {
     my ($request) = @_;
     my $status = $configuration->{status}->();
-    for my $key (qw(state error last_success last_mode last_changes last_verified interval_seconds last_reconcile_duration_ms suggested_interval_seconds worker_running)) {
+    for my $key (qw(state error last_success last_mode last_changes last_verified last_reconcile_duration_ms worker_running)) {
         $request->addResult($key, $status->{$key}) if defined $status->{$key};
     }
     $request->setStatusDone;

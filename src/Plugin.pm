@@ -8,10 +8,8 @@ use base qw(Slim::Plugin::Base);
 use File::Basename qw(dirname);
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
-use Plugins::PhoneticSearch::Config;
 
 my $prefs = preferences('plugin.phoneticsearch');
-$prefs->init({ reconcile_interval_seconds => Plugins::PhoneticSearch::Config::DEFAULT_INTERVAL });
 my $log = Slim::Utils::Log->addLogCategory({
     category => 'plugin.phoneticsearch',
     defaultLevel => 'WARN',
@@ -32,16 +30,14 @@ sub _newActionToken {
 
 sub getDisplayName { return 'PLUGIN_PHONETICSEARCH'; }
 
-sub reconcileInterval {
-    return Plugins::PhoneticSearch::Config::interval_or_default(
-        $prefs->get('reconcile_interval_seconds')
-    );
-}
-
 sub initPlugin {
     my $class = shift;
     return if main::SCANNER;
     $class->SUPER::initPlugin(@_);
+    if (defined $prefs->get('reconcile_interval_seconds')) {
+        $prefs->remove('reconcile_interval_seconds');
+        $prefs->savenow;
+    }
     $action_token = _newActionToken();
     if ( main::WEBUI ) {
         require Plugins::PhoneticSearch::Settings;
@@ -60,10 +56,6 @@ sub initPlugin {
         1;
     };
     $log->error("Indexer scheduler startup failed: $@") unless $started;
-}
-
-sub intervalChanged {
-    $scheduler->interval_changed if $scheduler;
 }
 
 sub indexStatus {

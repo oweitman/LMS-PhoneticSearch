@@ -15,10 +15,6 @@ use Slim::Utils::Prefs;
 use Slim::Utils::Timers;
 use Time::HiRes qw(time);
 
-use Plugins::PhoneticSearch::Config;
-
-use constant FULL_INTERVAL => 900;
-
 sub new {
     my ($class, %args) = @_;
     my $cache = Slim::Utils::Prefs::preferences('server')->get('librarycachedir');
@@ -31,14 +27,8 @@ sub new {
         index => File::Spec->catfile($directory, 'index.db'),
         status_path => File::Spec->catfile($directory, 'worker-status.json'),
         active => 0, state => 'initializing', error => undef,
-        pending => 1, force_full => 1, last_full => 0,
+        pending => 1, force_full => 1,
     }, $class;
-}
-
-sub _interval {
-    my ($self) = @_;
-    return Plugins::PhoneticSearch::Config::interval_or_default(
-        $self->{prefs}->get('reconcile_interval_seconds'));
 }
 
 sub _identity {
@@ -63,6 +53,7 @@ sub _timer {
     my ($self, $delay) = @_;
     return unless $self->{active};
     Slim::Utils::Timers::killTimers($self, \&_tick);
+    return unless defined $delay;
     Slim::Utils::Timers::setTimer($self, time() + $delay, \&_tick);
 }
 
@@ -73,6 +64,11 @@ sub start {
     $self->{active} = 1;
     $self->{subscriber} = sub { $self->scan_done(@_) };
     Slim::Control::Request::subscribe($self->{subscriber}, [['rescan'], ['done']]);
+    # Album and track rescans run synchronously inside the server and need not
+    # emit a separate "rescan done" notification.
+    $self->{targeted_subscriber} = sub { $self->scan_done(@_) };
+    Slim::Control::Request::subscribe($self->{targeted_subscriber},
+        [['rescan'], ['album', 'track']]);
     $self->_timer(1);
 }
 
@@ -84,11 +80,6 @@ sub scan_done {
     $self->{state} = 'updating';
     $self->{settle_until} = time() + 5;
     $self->_timer(1);
-}
-
-sub interval_changed {
-    my ($self) = @_;
-    $self->_timer($self->_interval) if $self->{active};
 }
 
 sub request_rebuild {
@@ -157,9 +148,10 @@ sub _check_worker {
     if (defined($exit) && $exit == 0 && $result && $result->{state} eq 'ready') {
         my $identity = $self->_identity;
         my ($version) = $self->{gate}->selectrow_array('PRAGMA data_version');
-        $self->{pending} = $identity ne $self->{identity} || $version != $self->{launch_version};
+        $self->{pending} ||= $identity ne $self->{identity} ||
+            $version != $self->{launch_version};
         $self->{version} = $self->{launch_version};
-        $self->{last_full} = time() if $result->{mode} eq 'full' && !$self->{pending};
+        $self->{force_full} = 1 if $self->{pending} && $self->{launch_full};
         $self->{force_full} = 1 if $identity ne $self->{identity};
         $self->{state} = $self->{pending} ? 'stale' : 'ready';
         $self->{error} = undef;
@@ -177,12 +169,13 @@ sub _check_worker {
     elsif ($result && $result->{state} eq 'stale') {
         $self->{state} = 'stale';
         $self->{pending} = 1;
+        $self->{force_full} = 1 if $self->{launch_full};
         $self->{error} = undef;
         $self->{retry_at} = undef;
         $self->{log}->info('Indexer source changed during build; retry scheduled');
     }
     elsif ($result && ($result->{operation} || '') eq 'verify' &&
-            $result->{error} =~ /\A(?:index_out_of_sync|index_invalid|index_schema_mismatch|index_vocab_mismatch|index_alias_mismatch|index_spell_mismatch)/) {
+            $result->{error} =~ /\A(?:index_out_of_sync|index_invalid|index_schema_mismatch|index_vocab_mismatch|index_alias_mismatch|index_spell_mismatch|index_phrase_mismatch)/) {
         $self->{state} = 'stale';
         $self->{pending} = 1;
         $self->{force_full} = 1;
@@ -193,6 +186,7 @@ sub _check_worker {
     else {
         $self->{state} = 'error';
         $self->{pending} = 1;
+        $self->{force_full} = 1 if $self->{launch_full};
         $self->{error} = $result ? $result->{error} : $error || "worker exit $exit";
         $self->{retry_at} = time() + 60;
         $self->{log}->error("Indexer worker failed: $self->{error}");
@@ -227,6 +221,7 @@ sub _launch {
     die "worker spawn failed\n" unless $process;
     $self->{worker} = $process;
     $self->{launch_version} = $version;
+    $self->{launch_full} = $full;
     $self->{state} = $full ? 'building' : 'updating';
     $self->{pending} = 0;
     $self->{force_full} = 0;
@@ -237,8 +232,7 @@ sub _launch {
 sub _tick {
     my ($self) = @_;
     return unless $self->{active};
-    my $next = $self->_interval;
-    my $worker_before_tick = $self->{worker};
+    my $next;
     my $ok = eval {
         if ($self->{cleanup_pending}) {
             if ($self->_check_worker || Slim::Music::Import->stillScanning) {
@@ -251,12 +245,6 @@ sub _tick {
         }
         elsif ($self->_check_worker) {
             $next = 1;
-        }
-        elsif ($worker_before_tick && !$self->{requested_rebuild} &&
-                !$self->{requested_verify}) {
-            # The regular interval starts when the previous worker finishes.
-            # Pending source changes wait for that interval too.
-            $next = $self->_interval;
         }
         elsif (Slim::Music::Import->stillScanning ||
                 ($self->{settle_until} || 0) > time()) {
@@ -273,13 +261,16 @@ sub _tick {
                 $self->{force_full} = 1;
             }
             my ($version) = $self->{gate}->selectrow_array('PRAGMA data_version');
-            my $full = $self->{force_full} || !-f $self->{index} ||
-                       time() - $self->{last_full} >= FULL_INTERVAL;
-            if (($self->{pending} || $version != $self->{version} || $full)
-                    && !($self->{retry_at} && time() < $self->{retry_at})) {
-                $self->_launch($full, $version,
-                    $self->{requested_rebuild} ? 'rebuild' : 'index');
-                $next = 1;
+            my $full = $self->{force_full} || !-f $self->{index};
+            if ($self->{pending} || $version != $self->{version} || $full) {
+                if ($self->{retry_at} && time() < $self->{retry_at}) {
+                    $next = $self->{retry_at} - time();
+                }
+                else {
+                    $self->_launch($full, $version,
+                        $self->{requested_rebuild} ? 'rebuild' : 'index');
+                    $next = 1;
+                }
             }
             elsif ($self->{requested_verify}) {
                 $self->_launch(0, $version, 'verify');
@@ -296,6 +287,7 @@ sub _tick {
         $self->{pending} = 1;
         $self->{error} = $@ || 'scheduler tick failed';
         $self->{retry_at} = time() + 60;
+        $next = 60;
         $self->{log}->error("Indexer scheduler: $self->{error}");
     }
     $self->_timer($next);
@@ -311,11 +303,7 @@ sub status {
         last_mode => $self->{last_mode},
         last_changes => $self->{last_changes},
         last_verified => $self->{last_verified},
-        interval_seconds => $self->_interval,
         last_reconcile_duration_ms => $self->{last_reconcile_duration_ms},
-        suggested_interval_seconds =>
-            Plugins::PhoneticSearch::Config::suggested_interval(
-                $self->{last_reconcile_duration_ms}, $self->_interval),
         worker_running => $self->{worker} && $self->{worker}->alive ? 1 : 0,
     };
 }
@@ -326,6 +314,7 @@ sub stop {
     $self->{active} = 0;
     Slim::Utils::Timers::killTimers($self, \&_tick);
     Slim::Control::Request::unsubscribe($self->{subscriber});
+    Slim::Control::Request::unsubscribe($self->{targeted_subscriber});
     if ($self->{worker} && $self->{worker}->alive) {
         $self->{worker}->die;
     }

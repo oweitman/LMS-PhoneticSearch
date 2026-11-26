@@ -11,12 +11,6 @@
 		[% IF index_last_mode %]<div>[% "PLUGIN_PHONETICSEARCH_LAST_OPERATION" | string %]: [% index_last_mode | html %]</div>[% END %]
 		[% IF index_last_verified %]<div>[% "PLUGIN_PHONETICSEARCH_VERIFIED_ENTITIES" | string %]: [% index_last_verified | html %]</div>[% END %]
 		[% IF index_last_reconcile_duration_seconds %]<div id="phoneticsearch_reconcile_duration">[% "PLUGIN_PHONETICSEARCH_RECONCILE_DURATION" | string %]: [% index_last_reconcile_duration_seconds | html %] s</div>[% END %]
-		[% IF index_suggested_interval_seconds %]<div id="phoneticsearch_interval_suggestion">[% "PLUGIN_PHONETICSEARCH_INTERVAL_SUGGESTION" | string %]: [% index_suggested_interval_seconds | html %] s</div>[% END %]
-	[% END %]
-	[% WRAPPER settingGroup title="PLUGIN_PHONETICSEARCH_INTERVAL" desc="PLUGIN_PHONETICSEARCH_INTERVAL_DESC" %]
-		<input type="number" class="stdedit" name="pref_reconcile_interval_seconds"
-			id="reconcile_interval_seconds" min="5" max="3600" step="1"
-			value="[% prefs.pref_reconcile_interval_seconds | html %]" />
 	[% END %]
 	[% IF index_state == 'cleanup_complete' %]
 		<div id="phoneticsearch_cleanup_complete">[% "PLUGIN_PHONETICSEARCH_CLEANUP_COMPLETE" | string %]</div>

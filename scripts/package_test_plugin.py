@@ -19,7 +19,6 @@ FILES = (
     'HTML/EN/plugins/PhoneticSearch/settings/basic.html',
     'HTML/EN/plugins/PhoneticSearch/html/icon.png',
     'lib/Plugins/PhoneticSearch/API.pm',
-    'lib/Plugins/PhoneticSearch/Config.pm',
     'lib/Plugins/PhoneticSearch/Indexer.pm',
     'lib/Plugins/PhoneticSearch/Loader.pm',
     'lib/Plugins/PhoneticSearch/Scheduler.pm',

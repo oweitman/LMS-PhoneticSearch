@@ -1,7 +1,7 @@
-"""Exercise settings save against the isolated LMS 9.2 plugin, then restore 5 s."""
+"""Check the event-driven settings page on an isolated LMS instance."""
 from html.parser import HTMLParser
-from urllib.parse import urlencode, urljoin
-from urllib.request import Request, urlopen
+from urllib.parse import urljoin
+from urllib.request import urlopen
 
 from poc.test_live_plugin_api import rpc
 
@@ -31,32 +31,17 @@ def page():
     return form, body
 
 
-def save(value):
-    form, _ = page()
-    form.fields.update({'saveSettings': '1',
-                        'pref_reconcile_interval_seconds': str(value)})
-    request = Request(form.action, data=urlencode(form.fields).encode())
-    with urlopen(request, timeout=15) as response:
-        response.read()
-    return rpc('phoneticsearch', 'status', '?')['result']['interval_seconds']
-
-
 def main():
-    try:
-        changed = save(10)
-        invalid = save(4)
-    finally:
-        restored = save(5)
-    assert (changed, invalid, restored) == (10, 10, 5), (changed, invalid, restored)
     status = rpc('phoneticsearch', 'status', '?')['result']
+    assert 'interval_seconds' not in status
+    assert 'suggested_interval_seconds' not in status
+    _, body = page()
+    assert 'pref_reconcile_interval_seconds' not in body
+    assert 'phoneticsearch_interval_suggestion' not in body
     if 'last_reconcile_duration_ms' in status:
-        _, body = page()
         assert 'phoneticsearch_reconcile_duration' in body
-        expected = status.get('suggested_interval_seconds')
-        assert ('phoneticsearch_interval_suggestion' in body) == (expected is not None)
-    print('settings=ok changed=10 invalid_preserved=10 restored=5 '
-          f'duration_ms={status.get("last_reconcile_duration_ms", "unavailable")} '
-          f'suggestion={status.get("suggested_interval_seconds", "none")}')
+    print('settings=ok update_mode=scan_events '
+          f'duration_ms={status.get("last_reconcile_duration_ms", "unavailable")}')
 
 
 if __name__ == '__main__':

@@ -18,7 +18,7 @@ jobs:
       - run: python -m unittest discover -s poc -p 'test_*.py' -v
       - run: python -m poc.search_corpus
       - run: python -m compileall -q poc scripts
-      - run: perl -Isrc/lib poc/test_interval.pl
+      - run: perl -Isrc/lib poc/test_scheduler_events.pl
       - run: perl -Isrc/lib poc/test_loader_platforms.pl
       - run: python scripts/package_test_plugin.py
 

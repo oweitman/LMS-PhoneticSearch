@@ -58,15 +58,15 @@ The JSON-RPC envelope contains a `result` object. On success it has `index_state
 
 Each hit contains:
 
-| Field            | Meaning                                                                                                                                                                              |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `type`           | `artist`, `album`, `track` or `genre`.                                                                                                                                               |
-| `id`             | The LMS database ID for that entity type. Use `type` together with `id`; the ID alone is not globally unique.                                                                        |
-| `name`           | Current library name/title, checked against the source database.                                                                                                                     |
+| Field            | Meaning                                                                                                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`           | `artist`, `album`, `track` or `genre`.                                                                                                                                                                              |
+| `id`             | The LMS database ID for that entity type. Use `type` together with `id`; the ID alone is not globally unique.                                                                                                       |
+| `name`           | Current library name/title, checked against the source database.                                                                                                                                                    |
 | `match_type`     | `exact`, `normalized`, `alias`, `prefix`, `partial`, `phonetic` or `partial_phonetic`. Partial matches apply to artists, albums and tracks; aliases apply to artists. The two phonetic types share a ranking class. |
-| `score`          | A ranking value assigned by the plugin, **not** a probability or confidence percentage. Exact=1, normalized=0.95, alias=0.9, prefix=0.8, partial=0.75; phonetic classes use `0.7 / (1 + distance / 100)`. |
-| `distance`       | Spellfix edit distance for phonetic matches; smaller is better. It is 0 for other match types.                                                                                       |
-| `spellfix_score` | The underlying Spellfix score, used as a tie breaker within the same match class and distance.                                                                                       |
+| `score`          | A ranking value assigned by the plugin, **not** a probability or confidence percentage. Exact=1, normalized=0.95, alias=0.9, prefix=0.8, partial=0.75; phonetic classes use `0.7 / (1 + distance / 100)`.           |
+| `distance`       | Spellfix edit distance for phonetic matches; smaller is better. It is 0 for other match types.                                                                                                                      |
+| `spellfix_score` | The underlying Spellfix score, used as a tie breaker within the same match class and distance.                                                                                                                      |
 
 Hits are ordered first by match class, then distance, whole-title preference on a phonetic tie, Spellfix score, entity type and ID. Thus an exact `Pink` hit stays ahead of an alias suggestion for `P!nk`, and a complete exact track title stays ahead of a matching phrase within a longer title. A `phonetic` or `partial_phonetic` hit should be treated as a suggestion to the caller, especially before using it for an action. Partial matching uses whole words and adjacent phrases, not arbitrary character substrings.
 
@@ -87,3 +87,10 @@ The **Remove plugin data** action requires typing `DELETE`. It removes only the 
 On Linux, run `python -m unittest discover -s poc -p 'test_*.py' -v`, `python -m poc.search_corpus`, `perl -Isrc/lib poc/test_scheduler_events.pl`, and `python scripts/package_test_plugin.py`. The CI workflow runs the platform builds and load checks and creates a fresh plugin ZIP on each push. Its expensive binary jobs use a cache key derived from the pinned SQLite/Spellfix source, build and loader code, platform matrix and load-test code. A failing platform does not cancel the other platform jobs; a push failure opens or updates a target-specific GitHub issue.
 
 See [POC results](docs/poc-results.md), [compatibility](docs/compatibility.md) and [session progress](docs/progress.md) for actual observations and remaining limits.
+
+## Changelog
+
+### 2026-11-26
+
+- phonetic substring search for tracks, albums, and artists
+- remove polling, update starts after rescan done event of LMS

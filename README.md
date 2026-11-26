@@ -28,7 +28,7 @@ The feed is published only after all six binary checks pass. If your platform is
 
 LMS 9.1.0 is the declared minimum version. The complete plugin has so far been tested only with LMS 9.2.0 on Linux x86_64; the LMS 9.1 plugin runtime remains unverified.
 
-PhoneticSearch adds a read-only JSON-RPC search for artists, albums, tracks and genres. It combines exact, normalized, alias, prefix and phonetic matching. For example, speech recognition may turn **Alphaville** into `alpha will` or `alfa will`; both returned Alphaville as the first artist hit in the LMS 9.2 test library. The plugin does not replace the standard LMS search screen.
+PhoneticSearch adds a read-only JSON-RPC search for artists, albums, tracks and genres. It combines exact, normalized, alias, prefix and phonetic matching. Artist names, album titles and track titles also support words and phrases from the middle of a name, including phonetic variants of phrases up to four words. Phonetic partial matching for artists and albums requires at least two query words; exact partial matching also works for one word. For example, speech recognition may turn **Alphaville** into `alpha will` or `alfa will`; both returned Alphaville as the first artist hit in the LMS 9.2 test library. The plugin does not replace the standard LMS search screen.
 
 The plugin maintains its own SQLite index under the LMS cache. It reads `library.db` without adding triggers or changing LMS Core. A separate worker updates the index after source changes. The default poll interval is five seconds and can be set to 5–3600 seconds on the plugin settings page. A new automatic interval starts after the previous worker finishes, so workers do not overlap. A full comparison runs after a scan and at most every 900 seconds to catch deletions and changes without an update timestamp. During an LMS scan, searches pause. Results are checked against current library names before they are returned.
 
@@ -63,12 +63,12 @@ Each hit contains:
 | `type`           | `artist`, `album`, `track` or `genre`.                                                                                                                                               |
 | `id`             | The LMS database ID for that entity type. Use `type` together with `id`; the ID alone is not globally unique.                                                                        |
 | `name`           | Current library name/title, checked against the source database.                                                                                                                     |
-| `match_type`     | `exact`, `normalized`, `alias`, `prefix` or `phonetic`, in that priority order. Aliases currently apply to artists.                                                                  |
-| `score`          | A ranking value assigned by the plugin, **not** a probability or confidence percentage. Exact=1, normalized=0.95, alias=0.9, prefix=0.8; phonetic uses `0.7 / (1 + distance / 100)`. |
+| `match_type`     | `exact`, `normalized`, `alias`, `prefix`, `partial`, `phonetic` or `partial_phonetic`. Partial matches apply to artists, albums and tracks; aliases apply to artists. The two phonetic types share a ranking class. |
+| `score`          | A ranking value assigned by the plugin, **not** a probability or confidence percentage. Exact=1, normalized=0.95, alias=0.9, prefix=0.8, partial=0.75; phonetic classes use `0.7 / (1 + distance / 100)`. |
 | `distance`       | Spellfix edit distance for phonetic matches; smaller is better. It is 0 for other match types.                                                                                       |
 | `spellfix_score` | The underlying Spellfix score, used as a tie breaker within the same match class and distance.                                                                                       |
 
-Hits are ordered first by match class, then distance, Spellfix score, entity type and ID. Thus an exact `Pink` hit stays ahead of an alias suggestion for `P!nk`. A `phonetic` hit for `alpha will` should be treated as a suggestion to the caller, especially before using it for an action.
+Hits are ordered first by match class, then distance, whole-title preference on a phonetic tie, Spellfix score, entity type and ID. Thus an exact `Pink` hit stays ahead of an alias suggestion for `P!nk`, and a complete exact track title stays ahead of a matching phrase within a longer title. A `phonetic` or `partial_phonetic` hit should be treated as a suggestion to the caller, especially before using it for an action. Partial matching uses whole words and adjacent phrases, not arbitrary character substrings.
 
 ### Reading status and errors
 

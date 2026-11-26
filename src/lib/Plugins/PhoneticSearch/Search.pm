@@ -16,6 +16,7 @@ my %SOURCE = (
     genre  => [ 'genres', 'name' ],
 );
 my @ORDER = qw(artist album track genre);
+my %PHRASE_KIND = map { $_ => 1 } qw(artist album track);
 
 sub new {
     my ($class, %args) = @_;
@@ -54,6 +55,7 @@ sub search {
     my %candidate;
     my $ok = eval {
         $self->{loader}->load_on_handle($index);
+        my ($schema) = $index->selectrow_array("SELECT value FROM ps_meta WHERE key='schema'");
         for my $kind (@types) {
             my $exact = $index->selectall_arrayref(
                 'SELECT entity_id,original FROM ps_entity WHERE entity_type=? AND original=? LIMIT 200',
@@ -73,6 +75,22 @@ sub search {
                 q{SELECT e.entity_id,e.original FROM ps_vocab v JOIN ps_entity e ON e.vocab_id=v.id WHERE v.entity_type=? AND v.normalized>=? AND v.normalized<? LIMIT 200},
                 undef, $kind, $normalized, _prefix_high($normalized));
             _add(\%candidate, $kind, $prefix, 3, 0, 0);
+            my $phrase_query;
+            my $phrase_word_count = 0;
+            my $phrase_index_ready = defined($schema) &&
+                ($schema eq '5' && $PHRASE_KIND{$kind} ||
+                 $schema eq '4' && $kind eq 'track');
+            if ($phrase_index_ready) {
+                my @words = $normalized =~ /[\p{L}\p{N}]+/g;
+                $phrase_word_count = scalar @words;
+                $phrase_query = join ' ', @words if @words && @words <= 4;
+                if (defined($phrase_query) && length($phrase_query) >= 3) {
+                    my $partial = $index->selectall_arrayref(
+                        "SELECT e.entity_id,e.original FROM ps_${kind}_phrase p JOIN ps_${kind}_phrase_vocab pv ON pv.phrase_id=p.id JOIN ps_entity e ON e.vocab_id=pv.vocab_id WHERE p.phrase=? AND e.entity_type=? LIMIT 200",
+                        undef, $phrase_query, $kind);
+                    _add(\%candidate, $kind, $partial, 4, 0, 0);
+                }
+            }
             if (length($normalized) >= 3) {
                 my @queries = ($normalized);
                 if ($kind eq 'artist') {
@@ -92,8 +110,22 @@ sub search {
                         my $entities = $index->selectall_arrayref(
                             'SELECT entity_id,original FROM ps_entity WHERE entity_type=? AND vocab_id=? LIMIT 200',
                             undef, $kind, $vocab_id);
-                        _add(\%candidate, $kind, $entities, 4, $distance, $spell_score);
+                        _add(\%candidate, $kind, $entities, 5, $distance, $spell_score);
                     }
+                }
+            }
+            if ($phrase_index_ready &&
+                defined($phrase_query) && length($phrase_query) >= 5 &&
+                ($kind eq 'track' || $phrase_word_count >= 2)) {
+                my $phrases = $index->selectall_arrayref(
+                    "SELECT rowid,distance,score FROM ps_spell_${kind}_phrase WHERE word MATCH ? LIMIT 40",
+                    undef, $phrase_query);
+                for my $phrase (@$phrases) {
+                    my ($phrase_id, $distance, $spell_score) = @$phrase;
+                    my $entities = $index->selectall_arrayref(
+                        "SELECT e.entity_id,e.original FROM ps_${kind}_phrase_vocab pv JOIN ps_entity e ON e.vocab_id=pv.vocab_id WHERE pv.phrase_id=? AND e.entity_type=? LIMIT 200",
+                        undef, $phrase_id, $kind);
+                    _add(\%candidate, $kind, $entities, 5, $distance, $spell_score, 1);
                 }
             }
         }
@@ -120,6 +152,7 @@ sub search {
     @verified = sort {
         $a->{class} <=> $b->{class} ||
         $a->{distance} <=> $b->{distance} ||
+        $a->{partial} <=> $b->{partial} ||
         $a->{spellfix_score} <=> $b->{spellfix_score} ||
         $order{$a->{type}} <=> $order{$b->{type}} ||
         $a->{id} <=> $b->{id}
@@ -132,9 +165,13 @@ sub search {
                         $hit->{class} == 1 ? 0.95 :
                         $hit->{class} == 2 ? 0.9 :
                         $hit->{class} == 3 ? 0.8 :
+                        $hit->{class} == 4 ? 0.75 :
                         0.7 / (1 + $hit->{distance} / 100);
-        $hit->{match_type} = (qw(exact normalized alias prefix phonetic))[$hit->{class}];
+        $hit->{match_type} = $hit->{class} == 5 && $hit->{partial}
+            ? 'partial_phonetic'
+            : (qw(exact normalized alias prefix partial phonetic))[$hit->{class}];
         delete $hit->{class};
+        delete $hit->{partial};
     }
     return { count => scalar(@page), offset => int($offset), limit => int($limit),
              total_is_exact => 0, index_state => 'ready', results_loop => \@page };
@@ -151,18 +188,21 @@ sub _prefix_high {
 }
 
 sub _add {
-    my ($candidates, $kind, $rows, $class, $distance, $score) = @_;
+    my ($candidates, $kind, $rows, $class, $distance, $score, $partial) = @_;
     for my $row (@$rows) {
         my ($id, $name) = @$row;
         $name = Plugins::PhoneticSearch::Indexer::_text($name);
         my $key = "$kind:$id";
         next if exists($candidates->{$key}) &&
             ($candidates->{$key}->{class} < $class ||
-             ($candidates->{$key}->{class} == $class &&
-              $candidates->{$key}->{distance} <= ($distance || 0)));
+              ($candidates->{$key}->{class} == $class &&
+               ($candidates->{$key}->{distance} < ($distance || 0) ||
+                ($candidates->{$key}->{distance} == ($distance || 0) &&
+                 $candidates->{$key}->{partial} <= ($partial || 0)))));
         $candidates->{$key} = {
             type => $kind, id => int($id), name => $name, class => $class,
             distance => int($distance || 0), spellfix_score => int($score || 0),
+            partial => $partial ? 1 : 0,
         };
     }
 }

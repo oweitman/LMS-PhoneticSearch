@@ -26,6 +26,7 @@ my %NAME_COLUMN = (
     artist => [ 'contributors', 'name' ],
     genre  => [ 'genres', 'name' ],
 );
+my %PHRASE_KIND = map { $_ => 1 } qw(artist album track);
 
 sub new {
     my ($class, %args) = @_;
@@ -96,10 +97,30 @@ sub _schema {
     $db->do('CREATE TABLE ps_entity(entity_type TEXT NOT NULL, entity_id INTEGER NOT NULL, original TEXT NOT NULL, vocab_id INTEGER NOT NULL REFERENCES ps_vocab(id), PRIMARY KEY(entity_type, entity_id))');
     $db->do('CREATE INDEX ps_entity_vocab ON ps_entity(vocab_id)');
     $db->do('CREATE INDEX ps_entity_name ON ps_entity(entity_type,original)');
+    for my $kind (sort keys %PHRASE_KIND) {
+        $db->do("CREATE TABLE ps_${kind}_phrase(id INTEGER PRIMARY KEY, phrase TEXT NOT NULL UNIQUE)");
+        $db->do("CREATE TABLE ps_${kind}_phrase_vocab(phrase_id INTEGER NOT NULL REFERENCES ps_${kind}_phrase(id), vocab_id INTEGER NOT NULL REFERENCES ps_vocab(id), PRIMARY KEY(phrase_id,vocab_id))");
+        $db->do("CREATE INDEX ps_${kind}_phrase_vocab_vocab ON ps_${kind}_phrase_vocab(vocab_id)");
+        $db->do("CREATE VIRTUAL TABLE ps_spell_${kind}_phrase USING spellfix1");
+    }
     for my $kind (sort keys %NAME_COLUMN) {
         $db->do("CREATE VIRTUAL TABLE ps_spell_$kind USING spellfix1");
     }
-    $db->do("INSERT INTO ps_meta(key,value) VALUES ('schema','3')");
+    $db->do("INSERT INTO ps_meta(key,value) VALUES ('schema','5')");
+}
+
+sub _phrases {
+    my ($normalized) = @_;
+    my @words = $normalized =~ /[\p{L}\p{N}]+/g;
+    my %phrases;
+    for my $start (0 .. $#words) {
+        for my $length (1 .. 4) {
+            last if $start + $length > @words;
+            my $phrase = join ' ', @words[$start .. $start + $length - 1];
+            $phrases{$phrase} = 1 if length($phrase) >= 3 && $phrase ne $normalized;
+        }
+    }
+    return keys %phrases;
 }
 
 sub _meta {
@@ -130,6 +151,18 @@ sub _apply {
     if (defined $old_vocab) {
         my ($used) = $db->selectrow_array('SELECT 1 FROM ps_entity WHERE vocab_id=? LIMIT 1', undef, $old_vocab);
         unless ($used) {
+            if ($PHRASE_KIND{$kind}) {
+                my $phrases = $db->selectcol_arrayref(
+                    "SELECT phrase_id FROM ps_${kind}_phrase_vocab WHERE vocab_id=?", undef, $old_vocab);
+                $db->do("DELETE FROM ps_${kind}_phrase_vocab WHERE vocab_id=?", undef, $old_vocab);
+                for my $phrase_id (@$phrases) {
+                    my ($still_used) = $db->selectrow_array(
+                        "SELECT 1 FROM ps_${kind}_phrase_vocab WHERE phrase_id=? LIMIT 1", undef, $phrase_id);
+                    next if $still_used;
+                    $db->do("DELETE FROM ps_spell_${kind}_phrase WHERE rowid=?", undef, $phrase_id);
+                    $db->do("DELETE FROM ps_${kind}_phrase WHERE id=?", undef, $phrase_id);
+                }
+            }
             $db->do("DELETE FROM ps_spell_$kind WHERE rowid=?", undef, $old_vocab);
             $db->do('DELETE FROM ps_alias WHERE vocab_id=?', undef, $old_vocab);
             $db->do('DELETE FROM ps_vocab WHERE id=?', undef, $old_vocab);
@@ -150,6 +183,19 @@ sub _apply {
     unless ($present) {
         $db->do("INSERT INTO ps_spell_$kind(rowid,word,rank,langid) VALUES (?,?,1,0)",
                 undef, $vocab_id, $normalized);
+        if ($PHRASE_KIND{$kind}) {
+            for my $phrase (_phrases($normalized)) {
+                $db->do("INSERT OR IGNORE INTO ps_${kind}_phrase(phrase) VALUES (?)", undef, $phrase);
+                my ($phrase_id) = $db->selectrow_array(
+                    "SELECT id FROM ps_${kind}_phrase WHERE phrase=?", undef, $phrase);
+                $db->do("INSERT OR IGNORE INTO ps_${kind}_phrase_vocab(phrase_id,vocab_id) VALUES (?,?)",
+                    undef, $phrase_id, $vocab_id);
+                my ($indexed) = $db->selectrow_array(
+                    "SELECT 1 FROM ps_spell_${kind}_phrase WHERE rowid=?", undef, $phrase_id);
+                $db->do("INSERT INTO ps_spell_${kind}_phrase(rowid,word,rank,langid) VALUES (?,?,1,0)",
+                    undef, $phrase_id, $phrase) unless $indexed;
+            }
+        }
     }
     $db->do('INSERT INTO ps_entity(entity_type,entity_id,original,vocab_id) VALUES (?,?,?,?)',
             undef, $kind, $id, $name, $vocab_id);
@@ -402,7 +448,7 @@ sub run {
         }
         else {
             my $index = eval { $self->_index($self->{index}) };
-            my $metadata_ok = eval { defined($index) && _meta($index, 'schema') eq '3' };
+            my $metadata_ok = eval { defined($index) && _meta($index, 'schema') eq '5' };
             if (!$metadata_ok) {
                 $index->disconnect if $index;
                 $result = $self->_full($source, $version, $identity);
@@ -444,7 +490,7 @@ sub verify {
     my $index = $self->_index_readonly;
     my $result;
     my $ok = eval {
-        die "index_schema_mismatch\n" unless _meta($index, 'schema') eq '3';
+        die "index_schema_mismatch\n" unless _meta($index, 'schema') eq '5';
         my $found = _snapshot($source);
         _validate($index, scalar(keys %$found));
         my $rows = $index->selectall_arrayref(
@@ -466,12 +512,14 @@ sub verify {
         die "index_vocab_mismatch\n" unless @$vocab_rows == keys %expected_vocab;
         my %expected_aliases;
         my %vocab_counts;
+        my %expected_phrase_links;
         for my $row (@$vocab_rows) {
             my ($id, $kind, $normalized) = @$row;
             $normalized = _text($normalized);
             die "index_vocab_mismatch\n"
                 unless delete $expected_vocab{"$kind:$normalized"};
             ++$vocab_counts{$kind};
+            $expected_phrase_links{$kind} += scalar(_phrases($normalized)) if $PHRASE_KIND{$kind};
             my $alias = _alias($kind, $normalized);
             $expected_aliases{"$kind:$alias:$id"} = 1 if defined $alias;
         }
@@ -490,6 +538,17 @@ sub verify {
                 "SELECT count(*) FROM ps_spell_$kind");
             die "index_spell_mismatch\n"
                 unless $spell_count == ($vocab_counts{$kind} || 0);
+        }
+        for my $kind (sort keys %PHRASE_KIND) {
+            my ($phrase_links) = $index->selectrow_array("SELECT count(*) FROM ps_${kind}_phrase_vocab");
+            my ($phrase_count) = $index->selectrow_array("SELECT count(*) FROM ps_${kind}_phrase");
+            my ($phrase_spell_count) = $index->selectrow_array("SELECT count(*) FROM ps_spell_${kind}_phrase");
+            die "index_phrase_mismatch: $kind\n"
+                unless $phrase_links == ($expected_phrase_links{$kind} || 0) &&
+                    $phrase_count == $phrase_spell_count;
+            my ($orphan_links) = $index->selectrow_array(
+                "SELECT count(*) FROM ps_${kind}_phrase_vocab pv LEFT JOIN ps_${kind}_phrase p ON p.id=pv.phrase_id LEFT JOIN ps_vocab v ON v.id=pv.vocab_id WHERE p.id IS NULL OR v.id IS NULL");
+            die "index_phrase_mismatch: $kind\n" if $orphan_links;
         }
         my ($after_version) = $source->selectrow_array('PRAGMA data_version');
         die "source_changed_during_verify\n"

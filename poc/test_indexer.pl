@@ -46,14 +46,25 @@ my ($max_updated) = $db->selectrow_array('SELECT coalesce(max(updated_time),0) F
 my $updated = int(time()) > $max_updated ? int(time()) : $max_updated + 2;
 $db->do("INSERT INTO albums(title) VALUES ('POC Perl Album')");
 my $album = $db->sqlite_last_insert_rowid;
+$db->do("INSERT INTO albums(title) VALUES ('Songs from the Violet Harbor at Dawn')");
+my $long_album = $db->sqlite_last_insert_rowid;
 $db->do("INSERT INTO contributors(name) VALUES ('POC Perl Artist')");
 my $artist = $db->sqlite_last_insert_rowid;
+$db->do("INSERT INTO contributors(name) VALUES ('The Amber Valley Players at Night')");
+my $long_artist = $db->sqlite_last_insert_rowid;
 $db->do("INSERT INTO genres(name) VALUES ('POC Perl Genre')");
 my $genre = $db->sqlite_last_insert_rowid;
 $db->do('INSERT INTO tracks(url,title,audio,remote,album,updated_time) VALUES (?,?,?,?,?,?)',
         undef, 'file:///poc-perl-track', 'POC Perl Track', 1, 0, $album, $updated);
 my $track = $db->sqlite_last_insert_rowid;
+$db->do('INSERT INTO tracks(url,title,audio,remote,album,updated_time) VALUES (?,?,?,?,?,?)',
+        undef, 'file:///poc-perl-long-track',
+        'A Quiet Morning in the Silver Garden at Dawn', 1, 0, $long_album, $updated);
+my $long_track = $db->sqlite_last_insert_rowid;
+$db->do('INSERT INTO tracks(url,title,audio,remote,updated_time) VALUES (?,?,?,?,?)',
+        undef, 'file:///poc-perl-short-track', 'Silver Garden', 1, 0, $updated);
 $db->do('INSERT INTO contributor_track(role,contributor,track) VALUES (1,?,?)', undef, $artist, $track);
+$db->do('INSERT INTO contributor_track(role,contributor,track) VALUES (1,?,?)', undef, $long_artist, $long_track);
 $db->do('INSERT INTO genre_track(genre,track) VALUES (?,?)', undef, $genre, $track);
 $db->disconnect;
 
@@ -87,6 +98,52 @@ die "Search did not find new artist\n"
 my $asr = $search->search(query => 'alfa will', types => ['artist']);
 die "ASR search did not find Alphaville\n"
     unless $asr->{count} && $asr->{results_loop}->[0]->{name} eq 'Alphaville';
+my $exact_title = $search->search(query => 'Silver Garden', types => ['track']);
+die "Exact track lost priority over middle phrase\n"
+    unless $exact_title->{results_loop}->[0]->{name} eq 'Silver Garden'
+        && $exact_title->{results_loop}->[0]->{match_type} eq 'exact';
+my $middle = $search->search(query => 'quiet morning', types => ['track']);
+die "Exact middle phrase was not found\n"
+    unless grep { $_->{id} == $long_track && $_->{match_type} eq 'partial' }
+        @{ $middle->{results_loop} };
+my $middle_typo = $search->search(query => 'silvr gardn', types => ['track'], limit => 5);
+die "Phonetic middle phrase was not found: " .
+    join(', ', map { "$_->{name} ($_->{match_type}, $_->{distance})" }
+        @{ $middle_typo->{results_loop} }) . "\n"
+    unless grep { $_->{id} == $long_track && $_->{match_type} eq 'partial_phonetic' }
+        @{ $middle_typo->{results_loop} };
+for my $case (
+    [ artist => $long_artist, 'amber valley', 'amber valey' ],
+    [ album => $long_album, 'violet harbor', 'violet harbr' ],
+) {
+    my ($kind, $id, $phrase, $typo) = @$case;
+    my $exact_part = $search->search(query => $phrase, types => [$kind], limit => 5);
+    die "Exact middle phrase missing for $kind\n"
+        unless grep { $_->{id} == $id && $_->{match_type} eq 'partial' }
+            @{ $exact_part->{results_loop} };
+    my $fuzzy_part = $search->search(query => $typo, types => [$kind], limit => 5);
+    die "Phonetic middle phrase missing for $kind\n"
+        unless grep { $_->{id} == $id && $_->{match_type} eq 'partial_phonetic' }
+            @{ $fuzzy_part->{results_loop} };
+}
+my $rename_db = DBI->connect("dbi:SQLite:dbname=$source_path", '', '', {
+    RaiseError => 1, PrintError => 0, AutoCommit => 1,
+}) or die DBI->errstr;
+$rename_db->do('UPDATE tracks SET title=?,updated_time=? WHERE id=?', undef,
+    'A Quiet Morning in the Golden Valley at Dawn', $updated + 1, $long_track);
+$rename_db->disconnect;
+my $renamed_track = $indexer->run;
+die "Renamed track did not update the phrase index\n"
+    unless $renamed_track->{mode} eq 'fast' && $renamed_track->{changes} >= 1;
+my $old_phrase = $search->search(query => 'silver garden', types => ['track']);
+die "Old middle phrase remained after track rename\n"
+    if grep { $_->{id} == $long_track && $_->{match_type} eq 'partial' }
+        @{ $old_phrase->{results_loop} };
+my $new_phrase = $search->search(query => 'golden valley', types => ['track']);
+die "New middle phrase missing after track rename\n"
+    unless grep { $_->{id} == $long_track && $_->{match_type} eq 'partial' }
+        @{ $new_phrase->{results_loop} };
+$indexer->verify;
 
 $db = DBI->connect("dbi:SQLite:dbname=$source_path", '', '', {
     RaiseError => 1, PrintError => 0, AutoCommit => 1,
